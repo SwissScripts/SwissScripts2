@@ -1,0 +1,48 @@
+-- Roblox Lua script for Fluxus to move a ship automatically along waypoints
+
+-- Define waypoints (replace these coordinates with actual in-game positions)
+local waypoints = {
+    Vector3.new(100, 10, 100),
+    Vector3.new(300, 10, 100),
+    Vector3.new(500, 10, 100),
+    Vector3.new(700, 10, 100),
+    Vector3.new(900, 10, 100),
+    Vector3.new(100, 10, 300),
+    Vector3.new(300, 10, 300),
+    Vector3.new(500, 10, 300),
+    Vector3.new(700, 10, 300),
+    Vector3.new(900, 10, 300),
+    Vector3.new(100, 10, 500),
+    Vector3.new(300, 10, 500),
+    Vector3.new(500, 10, 500),
+    Vector3.new(700, 10, 500),
+    Vector3.new(900, 10, 500),
+    Vector3.new(100, 10, 700),
+    Vector3.new(300, 10, 700),
+    Vector3.new(500, 10, 700),
+    Vector3.new(700, 10, 700),
+    Vector3.new(900, 10, 700)
+}
+
+-- Settings
+local shipSpeed = 100  -- Speed of the ship
+local currentWaypointIndex = 1
+local ship = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+
+-- Function to move the ship to the next waypoint
+function moveToWaypoint(waypoint)
+    local humanoidRootPart = ship:WaitForChild("HumanoidRootPart")
+    local distance = (humanoidRootPart.Position - waypoint).Magnitude
+    local tweenInfo = TweenInfo.new(distance / shipSpeed, Enum.EasingStyle.Linear)
+    local tween = game:GetService("TweenService"):Create(humanoidRootPart, tweenInfo, {CFrame = CFrame.new(waypoint)})
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+-- Main loop to move the ship through waypoints
+while true do
+    local targetWaypoint = waypoints[currentWaypointIndex]
+    moveToWaypoint(targetWaypoint)
+    currentWaypointIndex = currentWaypointIndex % #waypoints + 1  -- Cycle to the next waypoint
+    wait(1)  -- Delay between movements
+end

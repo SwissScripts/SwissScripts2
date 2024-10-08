@@ -1,0 +1,170 @@
+-- Shipping Lanes Autofarm Script in Luau for Fluxus Executor with Waypoint System and Automatic Container Load/Refuel with UI
+
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui", 5)
+
+-- Create UI Elements
+print("Creating UI Elements...")
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = PlayerGui
+ScreenGui.Enabled = true  -- Ensure it's visible
+
+local StartButton = Instance.new("TextButton")
+local StopButton = Instance.new("TextButton")
+local StatusLabel = Instance.new("TextLabel")
+
+-- Configure the Start Button
+StartButton.Size = UDim2.new(0, 200, 0, 50)
+StartButton.Position = UDim2.new(0.5, -210, 0.5, -100)
+StartButton.Text = "Start Autofarm"
+StartButton.BackgroundColor3 = Color3.new(0, 1, 0)
+StartButton.Parent = ScreenGui
+
+-- Configure the Stop Button
+StopButton.Size = UDim2.new(0, 200, 0, 50)
+StopButton.Position = UDim2.new(0.5, 10, 0.5, -100)
+StopButton.Text = "Stop Autofarm"
+StopButton.BackgroundColor3 = Color3.new(1, 0, 0)
+StopButton.Parent = ScreenGui
+
+-- Configure the Status Label
+StatusLabel.Size = UDim2.new(0, 400, 0, 50)
+StatusLabel.Position = UDim2.new(0.5, -200, 0.5, -170)
+StatusLabel.Text = "Status: Idle"
+StatusLabel.TextColor3 = Color3.new(1, 1, 1)
+StatusLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+StatusLabel.Parent = ScreenGui
+
+-- Coordinates of important buttons (adjusted based on screen resolution)
+local DOCK_BUTTON = {1100, 600}  -- Coordinates for docking
+local UNLOAD_BUTTON = {1200, 650}  -- Coordinates for unloading cargo
+local LOAD_BUTTON = {1300, 700}  -- Coordinates for loading cargo
+local REFUEL_BUTTON = {1400, 750}  -- Coordinates for refueling
+
+-- Waypoints for navigation (adjusted for Shipping Lanes map)
+local waypoints_to_oceanfall = {
+    {x = 150, y = 300},
+    {x = 400, y = 500},
+    {x = 600, y = 700},
+    {x = 900, y = 800}
+}
+
+local waypoints_to_rockfall = {
+    {x = 900, y = 800},
+    {x = 600, y = 700},
+    {x = 400, y = 500},
+    {x = 150, y = 300}
+}
+
+-- Variable to control the autofarm loop
+local isFarming = false
+
+-- Function to move to a waypoint
+local function move_to_waypoint(waypoint)
+    print("Moving to waypoint: " .. waypoint.x .. ", " .. waypoint.y)
+    move_mouse(waypoint.x, waypoint.y)
+    mouse_click()
+    keypress("w", math.random(4000, 6000) / 1000)  -- Accelerate towards the waypoint
+    wait(math.random(8, 12))  -- Wait for a while to simulate ship movement
+end
+
+-- Function to follow waypoints to a destination
+local function follow_waypoints(waypoints)
+    for _, waypoint in ipairs(waypoints) do
+        if not isFarming then return end
+        move_to_waypoint(waypoint)
+    end
+end
+
+-- Function to move the ship from Rockfall to Ocean Fall Port using waypoints
+local function sail_to_oceanfall()
+    if not isFarming then return end
+    StatusLabel.Text = "Status: Sailing to Ocean Fall"
+    print("Starting the journey to Ocean Fall Port...")
+    follow_waypoints(waypoints_to_oceanfall)
+    
+    print("Arrived at Ocean Fall Port.")
+    dock_and_load_ship("Ocean Fall")
+end
+
+-- Function to dock, unload, load, and refuel the ship
+local function dock_and_load_ship(port_name)
+    if not isFarming then return end
+    StatusLabel.Text = "Status: Docking at " .. port_name
+    print("Docking the ship at " .. port_name .. "...")
+    click(DOCK_BUTTON[1], DOCK_BUTTON[2])  -- Click on the dock button (coordinates may vary)
+    wait(math.random(4500, 5500) / 1000)  -- Wait for docking procedure
+    
+    if port_name == "Rockfall" then
+        print("Loading cargo at Rockfall...")
+        StatusLabel.Text = "Status: Loading Cargo at Rockfall"
+        click(LOAD_BUTTON[1], LOAD_BUTTON[2])  -- Click load button
+        wait(math.random(4500, 5500) / 1000)  -- Wait for loading
+        print("Refueling at Rockfall...")
+        StatusLabel.Text = "Status: Refueling at Rockfall"
+        click(REFUEL_BUTTON[1], REFUEL_BUTTON[2])  -- Click refuel button
+        wait(math.random(4500, 5500) / 1000)  -- Wait for refueling
+    else
+        print("Unloading cargo at Ocean Fall...")
+        StatusLabel.Text = "Status: Unloading Cargo at Ocean Fall"
+        click(UNLOAD_BUTTON[1], UNLOAD_BUTTON[2])  -- Click unload button
+        wait(math.random(4500, 5500) / 1000)  -- Wait for unloading
+        
+        print("Loading cargo at Ocean Fall...")
+        StatusLabel.Text = "Status: Loading Cargo at Ocean Fall"
+        click(LOAD_BUTTON[1], LOAD_BUTTON[2])  -- Click load button
+        wait(math.random(4500, 5500) / 1000)  -- Wait for loading
+    end
+end
+
+-- Function to go back to Rockfall Port using waypoints
+local function sail_back_to_rockfall()
+    if not isFarming then return end
+    StatusLabel.Text = "Status: Sailing to Rockfall"
+    print("Starting the journey back to Rockfall Port...")
+    follow_waypoints(waypoints_to_rockfall)
+    
+    print("Arrived at Rockfall Port.")
+    dock_and_load_ship("Rockfall")
+end
+
+-- Main function to control the auto-farming routine
+local function autofarm_routine()
+    isFarming = true
+    while isFarming do
+        sail_to_oceanfall()
+        sail_back_to_rockfall()
+        wait(math.random(8, 12))  -- Short break before the next cycle
+    end
+end
+
+-- Utility functions to simulate keypress and mouse click
+function keypress(key, duration)
+    keypress_start(key)
+    wait(duration)
+    keypress_end(key)
+end
+
+function click(x, y)
+    move_mouse(x, y)
+    mouse_click()
+end
+
+-- Start Button Click Event
+StartButton.MouseButton1Click:Connect(function()
+    if not isFarming then
+        StatusLabel.Text = "Status: Starting Autofarm"
+        autofarm_routine()
+    end
+end)
+
+-- Stop Button Click Event
+StopButton.MouseButton1Click:Connect(function()
+    if isFarming then
+        StatusLabel.Text = "Status: Stopping Autofarm"
+        isFarming = false
+    end
+end)
+
+-- Fluxus Executor Note: Make sure to run this script in a compatible environment to avoid detection or bans.

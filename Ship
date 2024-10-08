@@ -1,170 +1,123 @@
--- Shipping Lanes Autofarm Script in Luau for Fluxus Executor with Waypoint System and Automatic Container Load/Refuel with UI
+import pygame
+import time
+import math
 
-local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui", 5)
+# Initialize pygame
+pygame.init()
 
--- Create UI Elements
-print("Creating UI Elements...")
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = PlayerGui
-ScreenGui.Enabled = true  -- Ensure it's visible
+# Set up display
+window_size = (1200, 800)
+screen = pygame.display.set_mode(window_size)
+pygame.display.set_caption("Automatic Ship Farming Script - Shipping Lanes Map")
 
-local StartButton = Instance.new("TextButton")
-local StopButton = Instance.new("TextButton")
-local StatusLabel = Instance.new("TextLabel")
+# Colors
+BACKGROUND_COLOR = (10, 10, 30)
+WAYPOINT_COLOR = (0, 255, 180)
+SHIP_COLOR = (255, 50, 50)
+WAYPOINT_TEXT_COLOR = (200, 200, 255)
+BUTTON_COLOR = (50, 50, 200)
+BUTTON_HOVER_COLOR = (80, 80, 255)
+BUTTON_TEXT_COLOR = (255, 255, 255)
+LINE_COLOR = (50, 50, 100)
 
--- Configure the Start Button
-StartButton.Size = UDim2.new(0, 200, 0, 50)
-StartButton.Position = UDim2.new(0.5, -210, 0.5, -100)
-StartButton.Text = "Start Autofarm"
-StartButton.BackgroundColor3 = Color3.new(0, 1, 0)
-StartButton.Parent = ScreenGui
+# Ship properties
+ship_pos = [200, 300]
+ship_speed = 2
+ship_radius = 10
 
--- Configure the Stop Button
-StopButton.Size = UDim2.new(0, 200, 0, 50)
-StopButton.Position = UDim2.new(0.5, 10, 0.5, -100)
-StopButton.Text = "Stop Autofarm"
-StopButton.BackgroundColor3 = Color3.new(1, 0, 0)
-StopButton.Parent = ScreenGui
+# Define waypoints
+waypoints = []
 
--- Configure the Status Label
-StatusLabel.Size = UDim2.new(0, 400, 0, 50)
-StatusLabel.Position = UDim2.new(0.5, -200, 0.5, -170)
-StatusLabel.Text = "Status: Idle"
-StatusLabel.TextColor3 = Color3.new(1, 1, 1)
-StatusLabel.BackgroundColor3 = Color3.new(0, 0, 0)
-StatusLabel.Parent = ScreenGui
+# Shipping Lanes Map Layout - Adjust these coordinates to resemble the in-game map more accurately
+map_waypoints = [
+    (100, 100), (300, 100), (500, 100), (700, 100), (900, 100),
+    (100, 300), (300, 300), (500, 300), (700, 300), (900, 300),
+    (100, 500), (300, 500), (500, 500), (700, 500), (900, 500),
+    (100, 700), (300, 700), (500, 700), (700, 700), (900, 700)
+]
+waypoints.extend(map_waypoints)
 
--- Coordinates of important buttons (adjusted based on screen resolution)
-local DOCK_BUTTON = {1100, 600}  -- Coordinates for docking
-local UNLOAD_BUTTON = {1200, 650}  -- Coordinates for unloading cargo
-local LOAD_BUTTON = {1300, 700}  -- Coordinates for loading cargo
-local REFUEL_BUTTON = {1400, 750}  -- Coordinates for refueling
+current_waypoint_index = 0
 
--- Waypoints for navigation (adjusted for Shipping Lanes map)
-local waypoints_to_oceanfall = {
-    {x = 150, y = 300},
-    {x = 400, y = 500},
-    {x = 600, y = 700},
-    {x = 900, y = 800}
-}
+# Load font (use default if 'futurist' is not available)
+font = pygame.font.Font(pygame.font.match_font('futurist', bold=True) or pygame.font.get_default_font(), 24)
 
-local waypoints_to_rockfall = {
-    {x = 900, y = 800},
-    {x = 600, y = 700},
-    {x = 400, y = 500},
-    {x = 150, y = 300}
-}
+# Function to move ship towards the target with smooth movement
+def move_towards(target, current, speed):
+    dx, dy = target[0] - current[0], target[1] - current[1]
+    distance = math.sqrt(dx ** 2 + dy ** 2)
+    if distance < speed:
+        return target[0], target[1]
+    else:
+        angle = math.atan2(dy, dx)
+        current[0] += math.cos(angle) * speed
+        current[1] += math.sin(angle) * speed
+        return current[0], current[1]
 
--- Variable to control the autofarm loop
-local isFarming = false
+# Function to draw button
+def draw_button(text, rect, active=False):
+    color = BUTTON_HOVER_COLOR if active else BUTTON_COLOR
+    pygame.draw.rect(screen, color, rect)
+    button_text = font.render(text, True, BUTTON_TEXT_COLOR)
+    screen.blit(button_text, (rect[0] + 10, rect[1] + 10))
 
--- Function to move to a waypoint
-local function move_to_waypoint(waypoint)
-    print("Moving to waypoint: " .. waypoint.x .. ", " .. waypoint.y)
-    move_mouse(waypoint.x, waypoint.y)
-    mouse_click()
-    keypress("w", math.random(4000, 6000) / 1000)  -- Accelerate towards the waypoint
-    wait(math.random(8, 12))  -- Wait for a while to simulate ship movement
-end
+# Main loop
+running = True
+while running:
+    mouse_pos = pygame.mouse.get_pos()
+    mouse_pressed = pygame.mouse.get_pressed()
 
--- Function to follow waypoints to a destination
-local function follow_waypoints(waypoints)
-    for _, waypoint in ipairs(waypoints) do
-        if not isFarming then return end
-        move_to_waypoint(waypoint)
-    end
-end
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left mouse button
+                # Check if clicking on a waypoint
+                for index, waypoint in enumerate(waypoints):
+                    if (waypoint[0] - 10 <= mouse_pos[0] <= waypoint[0] + 10) and (waypoint[1] - 10 <= mouse_pos[1] <= waypoint[1] + 10):
+                        current_waypoint_index = index
+                        break
+                # Check if clicking to add a new waypoint
+                add_waypoint_button_rect = (1050, 700, 120, 50)
+                if add_waypoint_button_rect[0] <= mouse_pos[0] <= add_waypoint_button_rect[0] + add_waypoint_button_rect[2] and \
+                   add_waypoint_button_rect[1] <= mouse_pos[1] <= add_waypoint_button_rect[1] + add_waypoint_button_rect[3]:
+                    waypoints.append(mouse_pos)
 
--- Function to move the ship from Rockfall to Ocean Fall Port using waypoints
-local function sail_to_oceanfall()
-    if not isFarming then return end
-    StatusLabel.Text = "Status: Sailing to Ocean Fall"
-    print("Starting the journey to Ocean Fall Port...")
-    follow_waypoints(waypoints_to_oceanfall)
-    
-    print("Arrived at Ocean Fall Port.")
-    dock_and_load_ship("Ocean Fall")
-end
+    # Get current waypoint
+    target_x, target_y = waypoints[current_waypoint_index]
 
--- Function to dock, unload, load, and refuel the ship
-local function dock_and_load_ship(port_name)
-    if not isFarming then return end
-    StatusLabel.Text = "Status: Docking at " .. port_name
-    print("Docking the ship at " .. port_name .. "...")
-    click(DOCK_BUTTON[1], DOCK_BUTTON[2])  -- Click on the dock button (coordinates may vary)
-    wait(math.random(4500, 5500) / 1000)  -- Wait for docking procedure
-    
-    if port_name == "Rockfall" then
-        print("Loading cargo at Rockfall...")
-        StatusLabel.Text = "Status: Loading Cargo at Rockfall"
-        click(LOAD_BUTTON[1], LOAD_BUTTON[2])  -- Click load button
-        wait(math.random(4500, 5500) / 1000)  -- Wait for loading
-        print("Refueling at Rockfall...")
-        StatusLabel.Text = "Status: Refueling at Rockfall"
-        click(REFUEL_BUTTON[1], REFUEL_BUTTON[2])  -- Click refuel button
-        wait(math.random(4500, 5500) / 1000)  -- Wait for refueling
-    else
-        print("Unloading cargo at Ocean Fall...")
-        StatusLabel.Text = "Status: Unloading Cargo at Ocean Fall"
-        click(UNLOAD_BUTTON[1], UNLOAD_BUTTON[2])  -- Click unload button
-        wait(math.random(4500, 5500) / 1000)  -- Wait for unloading
-        
-        print("Loading cargo at Ocean Fall...")
-        StatusLabel.Text = "Status: Loading Cargo at Ocean Fall"
-        click(LOAD_BUTTON[1], LOAD_BUTTON[2])  -- Click load button
-        wait(math.random(4500, 5500) / 1000)  -- Wait for loading
-    end
-end
+    # Move ship towards waypoint
+    ship_pos[0], ship_pos[1] = move_towards((target_x, target_y), ship_pos, ship_speed)
 
--- Function to go back to Rockfall Port using waypoints
-local function sail_back_to_rockfall()
-    if not isFarming then return end
-    StatusLabel.Text = "Status: Sailing to Rockfall"
-    print("Starting the journey back to Rockfall Port...")
-    follow_waypoints(waypoints_to_rockfall)
-    
-    print("Arrived at Rockfall Port.")
-    dock_and_load_ship("Rockfall")
-end
+    # Draw everything
+    screen.fill(BACKGROUND_COLOR)
 
--- Main function to control the auto-farming routine
-local function autofarm_routine()
-    isFarming = true
-    while isFarming do
-        sail_to_oceanfall()
-        sail_back_to_rockfall()
-        wait(math.random(8, 12))  -- Short break before the next cycle
-    end
-end
+    # Draw grid lines to resemble the shipping lanes map
+    for i in range(1, 5):
+        pygame.draw.line(screen, LINE_COLOR, (i * 200, 0), (i * 200, window_size[1]))
+    for i in range(1, 4):
+        pygame.draw.line(screen, LINE_COLOR, (0, i * 200), (window_size[0], i * 200))
 
--- Utility functions to simulate keypress and mouse click
-function keypress(key, duration)
-    keypress_start(key)
-    wait(duration)
-    keypress_end(key)
-end
+    # Draw waypoints
+    for index, waypoint in enumerate(waypoints):
+        pygame.draw.circle(screen, WAYPOINT_COLOR, waypoint, 8)
+        text = font.render(str(index + 1), True, WAYPOINT_TEXT_COLOR)
+        screen.blit(text, (waypoint[0] - 10, waypoint[1] - 10))
 
-function click(x, y)
-    move_mouse(x, y)
-    mouse_click()
-end
+    # Draw ship
+    pygame.draw.circle(screen, SHIP_COLOR, (int(ship_pos[0]), int(ship_pos[1])), ship_radius)
+    pygame.draw.circle(screen, (0, 255, 255), (int(ship_pos[0]), int(ship_pos[1])), ship_radius + 3, 1)  # Glow effect
 
--- Start Button Click Event
-StartButton.MouseButton1Click:Connect(function()
-    if not isFarming then
-        StatusLabel.Text = "Status: Starting Autofarm"
-        autofarm_routine()
-    end
-end)
+    # Draw add waypoint button
+    add_waypoint_button_rect = (1050, 700, 120, 50)
+    draw_button("Add Waypoint", add_waypoint_button_rect, add_waypoint_button_rect[0] <= mouse_pos[0] <= add_waypoint_button_rect[0] + add_waypoint_button_rect[2] and \
+                add_waypoint_button_rect[1] <= mouse_pos[1] <= add_waypoint_button_rect[1] + add_waypoint_button_rect[3])
 
--- Stop Button Click Event
-StopButton.MouseButton1Click:Connect(function()
-    if isFarming then
-        StatusLabel.Text = "Status: Stopping Autofarm"
-        isFarming = false
-    end
-end)
+    # Update display
+    pygame.display.flip()
 
--- Fluxus Executor Note: Make sure to run this script in a compatible environment to avoid detection or bans.
+    # Control frame rate
+    time.sleep(0.01)
+
+# Quit pygame
+pygame.quit()
